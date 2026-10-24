@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ChaosPilot</title>
+<style>
+  :root { --bg:#f6f5f2; --card:#ffffff; --ink:#1c1b1a; --muted:#6b6862; --accent:#d9480f; --line:#e6e3dc; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font-family: system-ui, -apple-system, sans-serif; line-height:1.5; }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 40px 20px 80px; }
+  h1 { font-size: 40px; margin: 0 0 6px; letter-spacing: -0.5px; }
+  .tag { font-size: 18px; color: var(--muted); margin: 0 0 28px; }
+  .tag b { color: var(--ink); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 24px; }
+  label { display:block; font-weight:600; margin: 16px 0 6px; }
+  .hint { font-weight:400; color:var(--muted); font-size:14px; }
+  input, select { width:100%; padding:11px 12px; border:1px solid var(--line); border-radius:8px; font-size:16px; background:#fff; }
+  .row { display:grid; grid-template-columns: 1fr 1fr; gap:16px; }
+  button { margin-top: 22px; width:100%; padding:14px; font-size:17px; font-weight:600; color:#fff; background:var(--accent); border:0; border-radius:10px; cursor:pointer; }
+  button:disabled { opacity:.6; cursor:wait; }
+  .steps { display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin: 0 0 24px; padding:0; list-style:none; }
+  .steps li { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px; font-size:14px; color:var(--muted); }
+  .steps li b { display:block; color:var(--ink); margin-bottom:2px; }
+  #status { margin: 18px 0 0; color: var(--muted); }
+  #runner { font-size:13px; padding:3px 9px; border-radius:99px; background:#fff3e0; color:#9a5b00; border:1px solid #f5d9a8; display:inline-block; margin-bottom:14px; }
+  iframe { width:100%; height: 1000px; border:1px solid var(--line); border-radius:14px; margin-top:24px; background:#fff; }
+  @media (max-width: 640px) { .row { grid-template-columns: 1fr; } .steps { grid-template-columns: 1fr 1fr; } h1 { font-size: 32px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>ChaosPilot</h1>
+  <p class="tag"><b>Test like a human. Think like a user. Report like an engineer.</b><br>
+  Give it a website and it tries to use it the way real, imperfect people do.</p>
+
+  <ul class="steps">
+    <li><b>1. Plan</b>Imagines how a rushed, confused or unusual user would behave</li>
+    <li><b>2. Safety check</b>Only runs on sites you've allowed</li>
+    <li><b>3. Try &amp; re-try</b>Runs each scenario, then repeats any failure</li>
+    <li><b>4. Report</b>Plain-English bugs with steps to reproduce</li>
+  </ul>
+
+  <div class="card">
+    <span id="runner">Checking runner…</span>
+    <form id="form">
+      <label for="url">Website to test <span class="hint">(a test site you're allowed to test)</span></label>
+      <input id="url" value="http://localhost:8080" required>
+
+      <label for="goal">What should we try to break? <span class="hint">(in plain English)</span></label>
+      <input id="goal" value="Try to break checkout" required>
+
+      <div class="row">
+        <div>
+          <label for="profile">Type of user</label>
+          <select id="profile">
+            <option value="">Mix of all</option>
+            <option value="impatient">Impatient: double-clicks, hits Back, reloads</option>
+            <option value="confused">Confused first-timer: blanks, wrong formats</option>
+            <option value="edge_case">Edge-case: emoji, very long text, odd characters</option>
+          </select>
+        </div>
+        <div>
+          <label for="count">How many scenarios</label>
+          <input id="count" type="number" min="1" max="15" value="5">
+        </div>
+      </div>
+
+      <button id="go" type="submit">Run chaos test</button>
+    </form>
+    <p id="status"></p>
+  </div>
+
+  <iframe id="result" hidden title="ChaosPilot report"></iframe>
+</div>
+
+<script>
+  const form = document.getElementById("form");
+  const statusEl = document.getElementById("status");
+  const btn = document.getElementById("go");
+  const frame = document.getElementById("result");
+  const runnerEl = document.getElementById("runner");
+
+  fetch("/health").then(r => r.json()).then(h => {
+    runnerEl.textContent = h.runner === "mock"
+      ? "Runner: SIMULATED (no real browser yet)"
+      : "Runner: " + h.runner;
+  }).catch(() => { runnerEl.textContent = "Runner: unknown"; });
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const body = {
+      url: document.getElementById("url").value.trim(),
+      goal: document.getElementById("goal").value.trim(),
+      count: Number(document.getElementById("count").value),
+      profile: document.getElementById("profile").value || null,
+    };
+    btn.disabled = true;
+    frame.hidden = true;
+    statusEl.textContent = "Working: planning scenarios, running them and re-testing failures. This can take up to 30 seconds.";
+    try {
+      const res = await fetch("/report?format=html", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || ("Server error " + res.status));
+      }
+      frame.srcdoc = await res.text();
+      frame.hidden = false;
+      statusEl.textContent = "Done. Your report is below.";
+    } catch (err) {
+      statusEl.textContent = "Something went wrong: " + err.message;
+    } finally {
+      btn.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>
