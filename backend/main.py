@@ -56,7 +56,10 @@ async def execute_run(req: PlanRequest) -> RunReport:
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Planner failed: {e}")
 
-    runner = get_runner()
+    try:
+        runner = get_runner()
+    except ValueError as e:
+        raise HTTPException(status_code=500, detail=str(e))
     results = await run_all(scenario_plan.scenarios, req.url, runner)
     bugs, flaky = await confirm_and_triage(scenario_plan.scenarios, results, req.url, runner)
     return RunReport(

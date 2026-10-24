@@ -5,7 +5,7 @@ from typing import Optional
 
 import markdown
 
-from leak_checks import Finding, scan_text_for_leaks
+from leak_checks import Finding, check_url_for_sensitive_params, scan_text_for_leaks
 from schemas import Bug, RunReport
 
 PROFILE_LABELS = {
@@ -83,11 +83,24 @@ def render_markdown(report: RunReport, extra_findings: Optional[list[Finding]] =
     add(f"- Errors while running: **{len(errored)}**")
     add("")
     if not simulated:
-        if report.bugs:
+        if results and len(blocked) == len(results):
+            add(f"**Verdict:** nothing was tested. All {len(blocked)} scenario(s) were blocked by "
+                "safety rules, so this report says nothing about the site. "
+                "See “Blocked by safety rules” below.")
+        elif results and len(blocked) + len(errored) == len(results):
+            add("**Verdict:** nothing was completed. Every scenario was either blocked by safety "
+                "rules or hit an error, so this report says nothing about the site yet.")
+        elif results and len(errored) == len(results):
+            add("**Verdict:** none of the scenarios could be completed, so this report says "
+                "nothing about the site yet. See “Scenarios that could not run” below.")
+        elif report.bugs:
             add(f"**Verdict:** {len(report.bugs)} confirmed bug(s) need attention. "
                 f"Worst severity: {report.bugs[0].severity}.")
         else:
-            add("**Verdict:** no confirmed bugs in the scenarios tried.")
+            skipped = len(blocked) + len(errored)
+            note = (f" {skipped} scenario(s) did not run (blocked or errored), "
+                    "so coverage is incomplete.") if skipped else ""
+            add("**Verdict:** no confirmed bugs in the scenarios that ran." + note)
         add("")
 
     # ---- Bugs ----
@@ -130,9 +143,9 @@ def render_markdown(report: RunReport, extra_findings: Optional[list[Finding]] =
         for text in r.observations:
             for f in scan_text_for_leaks(text):
                 findings.append((f"seen in scenario “{r.scenario_name}”", f))
-    for f in extra_findings or []:
-        findings.append(("seen on the page itself", f))
-
+            if text.startswith("Final URL: "):
+                for f in check_url_for_sensitive_params(text[len("Final URL: "):]):
+                    findings.append((f"seen in scenario “{r.scenario_name}”", f))
     add("## Security observations")
     add("")
     if not findings:
@@ -144,7 +157,12 @@ def render_markdown(report: RunReport, extra_findings: Optional[list[Finding]] =
     add("_ChaosPilot only reports what it observed in the browser. It cannot see how a site "
         "stores data on its servers._")
     add("")
-
+    if errored:
+        add("## Scenarios that could not run")
+        add("")
+        for r in errored:
+            add(f"- **{r.scenario_name}:** {'; '.join(r.observations)}")
+        add("")
     # ---- Other outcomes ----
     if report.flaky_scenarios:
         add("## Not reported (could not be confirmed)")
