@@ -11,6 +11,8 @@ Category = Literal[
     "boundary_values", "rapid_interaction", "empty_input",
 ]
 
+Profile = Literal["impatient", "confused", "edge_case"]
+
 
 class Step(BaseModel):
     action: ActionType
@@ -25,6 +27,10 @@ class Step(BaseModel):
 class Scenario(BaseModel):
     name: str
     category: Category
+    profile: Profile
+    human_story: str = Field(
+        description="One plain-English sentence from the user's point of view: why a real person would do this"
+    )
     description: str = Field(description="What this scenario tries to break and why")
     steps: list[Step]
     expected_behavior: str = Field(description="What a correct app should do")
@@ -49,6 +55,8 @@ class ScenarioResult(BaseModel):
 class Bug(BaseModel):
     title: str
     category: str
+    profile: Profile
+    human_story: str
     severity: Literal["low", "medium", "high", "critical"]
     confirmed: bool
     fail_count: int
