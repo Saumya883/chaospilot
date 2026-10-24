@@ -7,6 +7,8 @@ import time
 from google.genai import errors
 
 from schemas import ScenarioPlan
+from page_context import fetch_page_summary
+
 
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
@@ -33,9 +35,12 @@ Safety rules (strict):
 
 def plan_scenarios(url: str, goal: str, count: int = 8, retries: int = 4) -> ScenarioPlan:
     client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+    page = fetch_page_summary(url)
     prompt = (
         SYSTEM_RULES.format(max_steps=MAX_STEPS)
-        + f"\nTarget URL: {url}\nGoal: {goal}\nProduce {count} distinct scenarios."
+        + f"\nTarget URL: {url}\nGoal: {goal}"
+        + f"\n\nPage structure (only plan actions on elements that exist here):\n{page}"
+        + f"\n\nProduce {count} distinct scenarios."
     )
 
     last_error = None
