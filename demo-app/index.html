@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ShopDemo Checkout</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main>
+    <h1>Checkout</h1>
+    <p class="cart">1 x Wireless Headphones, Rs. 2,499</p>
+
+    <form id="checkout-form">
+      <label>Full name
+        <input id="name" name="name" type="text" placeholder="Your name" />
+      </label>
+      <label>Email
+        <input id="email" name="email" type="text" placeholder="you@example.com" />
+      </label>
+      <label>Address
+        <input id="address" name="address" type="text" placeholder="Street, city" />
+      </label>
+      <button id="pay" type="submit">Pay Rs. 2,499</button>
+    </form>
+
+    <p id="status"></p>
+    <p>Orders placed: <span id="order-count">0</span></p>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
