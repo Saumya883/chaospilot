@@ -49,6 +49,8 @@ async def confirm_and_triage(
             Bug(
                 title=scenario.name,
                 category=scenario.category,
+                profile=scenario.profile,
+                human_story=scenario.human_story,
                 severity=scenario.severity_guess,
                 confirmed=True,
                 fail_count=fails,
