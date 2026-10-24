@@ -3,12 +3,14 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from google import genai
+import time
+from google.genai import errors
 
 from schemas import ScenarioPlan
 
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
-MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
 MAX_STEPS = int(os.getenv("MAX_STEPS_PER_SCENARIO", "25"))
 
 SYSTEM_RULES = """You are ChaosPilot's planner, a QA engineer who tries to break web apps
@@ -29,22 +31,32 @@ Safety rules (strict):
 """
 
 
-def plan_scenarios(url: str, goal: str, count: int = 8) -> ScenarioPlan:
+def plan_scenarios(url: str, goal: str, count: int = 8, retries: int = 4) -> ScenarioPlan:
     client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
     prompt = (
         SYSTEM_RULES.format(max_steps=MAX_STEPS)
         + f"\nTarget URL: {url}\nGoal: {goal}\nProduce {count} distinct scenarios."
     )
-    response = client.models.generate_content(
-        model=MODEL,
-        contents=prompt,
-        config={
-            "response_mime_type": "application/json",
-            "response_schema": ScenarioPlan,
-            "temperature": 0.8,
-        },
-    )
-    plan = ScenarioPlan.model_validate_json(response.text)
-    for scenario in plan.scenarios:
-        scenario.steps = scenario.steps[:MAX_STEPS]
-    return plan
+
+    last_error = None
+    for attempt in range(retries):
+        try:
+            response = client.models.generate_content(
+                model=MODEL,
+                contents=prompt,
+                config={
+                    "response_mime_type": "application/json",
+                    "response_schema": ScenarioPlan,
+                    "temperature": 0.8,
+                },
+            )
+            plan = ScenarioPlan.model_validate_json(response.text)
+            for scenario in plan.scenarios:
+                scenario.steps = scenario.steps[:MAX_STEPS]
+            return plan
+        except errors.ServerError as e:  # 5xx: model busy, try again
+            last_error = e
+            wait = 2 ** attempt * 2  # 2s, 4s, 8s, 16s
+            print(f"Gemini busy (attempt {attempt + 1}/{retries}), retrying in {wait}s...")
+            time.sleep(wait)
+    raise last_error
