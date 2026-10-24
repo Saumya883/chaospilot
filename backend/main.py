@@ -8,6 +8,8 @@ from detector import confirm_and_triage
 from planner import plan_scenarios
 from runner import get_runner, run_all
 from schemas import RunReport, ScenarioPlan
+from typing import Optional
+from schemas import Profile, RunReport, ScenarioPlan
 
 app = FastAPI(title="ChaosPilot API")
 
@@ -23,6 +25,7 @@ class PlanRequest(BaseModel):
     url: str
     goal: str
     count: int = Field(default=5, ge=1, le=15)
+    profile: Optional[Profile] = None
 
 
 @app.get("/health")
