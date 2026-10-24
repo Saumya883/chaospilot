@@ -7,7 +7,8 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse
 from pydantic import BaseModel, Field
-
+from dotenv import load_dotenv
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")  # must run before the local imports below
 from detector import confirm_and_triage
 from leak_checks import Finding, passive_scan
 from planner import plan_scenarios
