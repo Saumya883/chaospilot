@@ -96,6 +96,16 @@ def plan_scenarios(
                 if profile:
                     scenario.profile = profile
             return plan
+        except errors.ClientError as e:
+            if getattr(e, "code", None) == 429:
+                detail = getattr(e, "message", None) or str(e)
+                raise RuntimeError(
+                    "Gemini rejected the request because of a quota or rate limit (HTTP 429). "
+                    f"Provider message: {detail[:300]} "
+                    "Wait a bit and retry, or set GEMINI_MODEL in .env to a model with quota "
+                    "(then restart uvicorn)."
+                ) from e
+            raise
         except errors.ServerError as e:  # 5xx: model busy, try again
             last_error = e
             wait = 2 ** attempt * 2
